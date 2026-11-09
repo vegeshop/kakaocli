@@ -12,11 +12,11 @@ public final class CredentialStore: Sendable {
     // MARK: - Read
 
     public var email: String? {
-        Self.readKeychain(account: Self.emailAccount)
+        Self.readKeychain(service: Self.service, account: Self.emailAccount)
     }
 
     public var password: String? {
-        Self.readKeychain(account: Self.passwordAccount)
+        Self.readKeychain(service: Self.service, account: Self.passwordAccount)
     }
 
     public var hasCredentials: Bool {
@@ -26,18 +26,18 @@ public final class CredentialStore: Sendable {
     // MARK: - Write
 
     public func save(email: String, password: String) throws {
-        try Self.writeKeychain(account: Self.emailAccount, value: email)
-        try Self.writeKeychain(account: Self.passwordAccount, value: password)
+        try Self.writeKeychain(service: Self.service, account: Self.emailAccount, value: email)
+        try Self.writeKeychain(service: Self.service, account: Self.passwordAccount, value: password)
     }
 
     public func clear() {
-        Self.deleteKeychain(account: Self.emailAccount)
-        Self.deleteKeychain(account: Self.passwordAccount)
+        Self.deleteKeychain(service: Self.service, account: Self.emailAccount)
+        Self.deleteKeychain(service: Self.service, account: Self.passwordAccount)
     }
 
-    // MARK: - Keychain Primitives
+    // MARK: - Keychain Primitives (also used by UserIdCache)
 
-    private static func readKeychain(account: String) -> String? {
+    static func readKeychain(service: String, account: String) -> String? {
         // Use `security` CLI to avoid code-signing ACL issues with swift run.
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
@@ -61,7 +61,7 @@ public final class CredentialStore: Sendable {
         }
     }
 
-    private static func writeKeychain(account: String, value: String) throws {
+    static func writeKeychain(service: String, account: String, value: String) throws {
         // Use `security` CLI to avoid code-signing ACL issues with swift run.
         // The Security framework ties keychain items to the signing identity of the binary,
         // which changes every time swift run rebuilds to a new path.
@@ -83,7 +83,7 @@ public final class CredentialStore: Sendable {
         }
     }
 
-    private static func deleteKeychain(account: String) {
+    static func deleteKeychain(service: String, account: String) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         process.arguments = [
