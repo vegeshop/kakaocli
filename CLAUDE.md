@@ -22,7 +22,7 @@ No external dependencies besides `sqlcipher` (Homebrew). The `CSQLCipher` system
 - **SQLCipher**: `PRAGMA cipher_default_compatibility = 3` (NOT `cipher_compatibility`)
 - **Container path**: `com.kakao.KakaoTalkMac` (NOT `KakaoTalk`)
 - **DB files**: No `.db` extension - raw hex filenames
-- **User ID**: Extracted from `FSChatWindowTransparency` plist key common suffix
+- **User ID**: `openDatabase` → `UserIdResolver`: `KAKAOCLI_USER_ID` → Keychain cache (`com.kakaocli.cache`, validated by hash + DB open) → `DeviceInfo.userId()` (plist heuristics, then parallel SHA-512 brute force of `DESIGNATEDFRIENDSREVISION:<hash>`). Never print the user ID or key.
 - **sqlcipher header**: `#include <sqlite3.h>` (NOT `<sqlcipher/sqlite3.h>`)
 
 ### UI Automation (AX)

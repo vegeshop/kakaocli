@@ -260,6 +260,31 @@ kakaocli reads KakaoTalk's local SQLCipher-encrypted database in **read-only mod
 
 kakaocli는 카카오톡의 로컬 SQLCipher 암호화 데이터베이스를 **읽기 전용 모드**로 읽습니다 — 데이터베이스를 절대 수정하지 않습니다. 메시지 전송 및 UI 상호작용에는 macOS 접근성 API(AXUIElement)를 사용하여 네이티브 카카오톡 클라이언트를 자동화합니다.
 
+### User ID resolution & cache / 사용자 ID 확인 및 캐시
+
+The database key is derived from your device UUID and your KakaoTalk user ID. Newer KakaoTalk versions only store `SHA-512(userId)` in the preferences plist, so the ID has to be recovered by brute force once. Read commands (`chats`, `messages`, `search`, `query`, `schema`) resolve it in this order:
+
+1. **`KAKAOCLI_USER_ID`** environment variable — used as-is; if its key doesn't open the DB the command fails instead of guessing.
+2. **Cached ID** in the macOS login Keychain (service `com.kakaocli.cache`, account `kakaotalk-user-id`). It is used only if it still matches the active account's hash *and* its derived key actually opens the DB; otherwise it is deleted and re-resolved.
+3. **Cheap plist heuristics** (legacy `FSChatWindowTransparency` / direct keys, `FSChatWindowFrame_` suffix and `AlertKakaoIDsList`, checked against the hash).
+4. **Parallel brute force** of the SHA-512 pre-image across all cores (last resort). Progress goes to stderr. Tune with `KAKAOCLI_BRUTE_FORCE_MAX` (search `0..<N`, default `4000000000`) and `KAKAOCLI_BRUTE_FORCE_TIMEOUT` (seconds, default `60`).
+
+The first run pays for the search once (≈1–2s on an M4 Pro for an 8-digit ID; longer for larger IDs); every later run reads the cache (≈0.3s total).
+
+```bash
+kakaocli cache clear     # forget the cached ID (e.g. after switching KakaoTalk accounts)
+```
+
+Passing `--db` and `--key` skips resolution entirely. `--key` alone still detects the ID (to locate the DB file) but never reads or writes the cache.
+
+**Security notes**
+- Only the user ID is cached — never the derived database key or passphrase.
+- kakaocli never prints the key, passphrase, or user ID to stdout or logs (`auth --verbose` no longer shows a key prefix). `kakaocli status` still shows the user ID, as before.
+- The Keychain item is written with the `security` CLI (same as `login`), so any process running as your macOS user can read it — the same trust boundary as the KakaoTalk plist it was derived from.
+- Read commands never launch, focus, or automate KakaoTalk and open the database read-only.
+
+카카오톡 DB 키는 기기 UUID와 카카오톡 사용자 ID로 만들어집니다. 최신 카카오톡은 plist에 `SHA-512(userId)`만 저장하므로 최초 1회는 전수 탐색이 필요합니다. 읽기 명령은 ① `KAKAOCLI_USER_ID` 환경 변수 → ② 키체인 캐시(활성 계정 해시 일치 + 실제 DB 열림을 확인, 실패 시 삭제 후 재탐색) → ③ plist 휴리스틱 → ④ 전체 코어 병렬 전수 탐색 순서로 ID를 찾습니다. 첫 실행 이후에는 캐시 덕분에 약 0.3초면 끝납니다. 계정을 바꿨다면 `kakaocli cache clear`로 캐시를 지우세요. 캐시에는 사용자 ID만 저장되며 DB 키·패스프레이즈는 저장하거나 출력하지 않습니다.
+
 ## Known Limitations / 알려진 제한 사항
 
 > [!WARNING]

@@ -8,7 +8,7 @@ struct AuthCommand: ParsableCommand {
         abstract: "Derive keys and verify database access"
     )
 
-    @Flag(name: .long, help: "Show derived values (key, db name) for debugging")
+    @Flag(name: .long, help: "Show derived values (db name) for debugging; the key and user ID are never printed")
     var verbose = false
 
     @Option(name: .long, help: "Override user ID instead of reading from plist")
@@ -31,18 +31,18 @@ struct AuthCommand: ParsableCommand {
         let uid: Int?
         if let override = userId {
             uid = override
-            print("User ID: \(override) (override)")
+            print("User ID: provided via --user-id")
         } else {
             do {
                 let detected = try DeviceInfo.userId()
                 uid = detected
-                print("User ID: \(detected)")
+                print("User ID: detected")
             } catch {
                 uid = nil
                 let candidates = DeviceInfo.candidateUserIds()
                 print("User ID: auto-detection failed")
                 if !candidates.isEmpty {
-                    print("  Candidates from AlertKakaoIDsList: \(candidates.map(String.init).joined(separator: ", "))")
+                    print("  \(candidates.count) candidate(s) in AlertKakaoIDsList")
                 }
             }
         }
@@ -50,9 +50,7 @@ struct AuthCommand: ParsableCommand {
         // 3. Show derived values if we have a userId
         if let uid, verbose {
             let dbName = KeyDerivation.databaseName(userId: uid, uuid: deviceUUID)
-            let secureKey = KeyDerivation.secureKey(userId: uid, uuid: deviceUUID)
             print("Database name: \(dbName)")
-            print("Secure key: \(secureKey.prefix(16))...")
         }
 
         // 4. Discover database file
@@ -90,13 +88,13 @@ struct AuthCommand: ParsableCommand {
 
             if !candidateIds.isEmpty {
                 print("\nTrying candidate user IDs against discovered DB...")
-                for candidate in candidateIds {
+                for (index, candidate) in candidateIds.enumerated() {
                     let candidateKey = KeyDerivation.secureKey(userId: candidate, uuid: deviceUUID)
                     let reader = DatabaseReader(databasePath: discoveredDb)
                     if reader.tryOpen(key: candidateKey) {
-                        print("  userId=\(candidate): OK")
+                        print("  candidate \(index + 1): OK")
                         let tables = try reader.schema()
-                        print("\nDatabase opened successfully with userId=\(candidate)!")
+                        print("\nDatabase opened successfully!")
                         print("Tables found: \(tables.count)")
                         for table in tables {
                             print("  - \(table.name)")
@@ -105,7 +103,7 @@ struct AuthCommand: ParsableCommand {
                         return
                     } else {
                         if verbose {
-                            print("  userId=\(candidate): key mismatch")
+                            print("  candidate \(index + 1): key mismatch")
                         }
                     }
                 }

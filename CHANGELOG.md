@@ -1,5 +1,13 @@
 # Changelog
 
+### v0.7.0 - Fast user ID resolution
+- Read commands drop from ~11s to ~0.3s: the resolved user ID is cached in the Keychain (validated by account hash + DB open)
+- `KAKAOCLI_USER_ID` override; `kakaocli cache clear`
+- SHA-512 user ID recovery is parallel across all cores, cheap heuristics run first, bound/timeout via `KAKAOCLI_BRUTE_FORCE_MAX` / `KAKAOCLI_BRUTE_FORCE_TIMEOUT`
+- Platform UUID read via IOKit instead of spawning `ioreg`
+- `auth` no longer prints the user ID or a key prefix
+- `--version` reports the real version
+
 ### v0.5.0 - Chat Harvest (Phase 4)
 - `harvest` command: bulk-capture chat display names and load message history
 - Vision framework OCR to locate "View Previous Chats" button
